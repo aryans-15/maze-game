@@ -1,4 +1,4 @@
-// in the future, make sure players can't have same name in the same room
+// make sure players can't have same name in the same room
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -11,7 +11,7 @@ const io = new Server(server, {
     }
 });
 
-const rooms = {}; //rooms go here
+const rooms = {};
 
 function generateRoomCode() {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
             id = generateRoomCode();
         }
         
-        rooms[id] = { players: [{ socket, username }] };
+        rooms[id] = { players: [{ id: socket.id, username }] };
         socket.join(id);
         socket.emit('room_created', { id });
         updatePlayersInRoom(id);
@@ -53,22 +53,22 @@ io.on('connection', (socket) => {
 
     socket.on('join_room', (data) => {
         const room = rooms[data.id];
-
+    
         if (!room) {
             socket.emit('invalid_room');
             return;
         }
-
+    
         const username = data.username;
         if (!username) {
             socket.emit('username_required');
             return;
         }
-
+    
         if (room.players.length < 2) {
-            room.players.push({ socket, username });
+            room.players.push({ id: socket.id, username });
             socket.join(data.id);
-            socket.emit('room_joined', { id: data.id });
+            socket.emit('room_joined');
             updatePlayersInRoom(data.id);
             if (room.players.length === 2) {
                 io.to(data.id).emit('game_start');
@@ -86,7 +86,7 @@ io.on('connection', (socket) => {
         console.log('user disconnected');
         for (const id in rooms) {
             const room = rooms[id];
-            room.players = room.players.filter(player => player.socket !== socket);
+            room.players = room.players.filter(player => player.id !== socket.id);
             if (room.players.length === 0) {
                 delete rooms[id];
             } else {
